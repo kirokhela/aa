@@ -28,9 +28,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(db_dir, 'app.d
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Init DB
-with app.app_context():
-    db.init_app(app)
-    db.create_all()
+db.init_app(app)
 
 # Serve static frontend (optional)
 @app.route('/', defaults={'path': ''})
