@@ -1,14 +1,15 @@
 import io
+import os
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request, send_file
-from openpyxl import Workbook
 from models.evaluation import EvaluationSubmission, db
+from openpyxl import Workbook
 
 evaluation_bp = Blueprint('evaluation', __name__)
 
-# Simple authentication - you can change this secret key
-ADMIN_SECRET = "kirokhela"  # Admin password
+# Use environment variable for admin secret (more secure)
+ADMIN_SECRET = os.getenv('ADMIN_SECRET', 'kirokhela')
 
 
 def verify_admin(secret):
@@ -20,80 +21,94 @@ def verify_admin(secret):
 def submit_evaluation():
     """Handle form submission"""
     try:
-        data = request.form.to_dict()
+        # Handle both form data and JSON
+        if request.content_type and 'application/json' in request.content_type:
+            data = request.get_json()
+        else:
+            data = request.form.to_dict()
+        
+        # Validate required fields
+        required_fields = ['participant_name', 'main_team']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False, 
+                    'error': f'Missing required field: {field}'
+                }), 400
+
+        # Helper function to safely convert to int
+        def safe_int(value):
+            try:
+                return int(value) if value and str(value).strip() else None
+            except (ValueError, TypeError):
+                return None
 
         # Create new evaluation submission
         submission = EvaluationSubmission(
-            participant_name=data.get('participant_name'),
-            main_team=data.get('main_team'),
-            sub_team=data.get('sub_team'),
-            program_rating=int(data.get('program_rating', 0)) if data.get(
-                'program_rating') else None,
-            program_pros=data.get('program_pros'),
-            program_cons=data.get('program_cons'),
-            leaders_rating=int(data.get('leaders_rating', 0)) if data.get(
-                'leaders_rating') else None,
-            leaders_pros=data.get('leaders_pros'),
-            leaders_cons=data.get('leaders_cons'),
-            games_rating=int(data.get('games_rating', 0)) if data.get(
-                'games_rating') else None,
-            games_pros=data.get('games_pros'),
-            games_cons=data.get('games_cons'),
-            goal_delivery_rating=int(data.get('goal_delivery_rating', 0)) if data.get(
-                'goal_delivery_rating') else None,
-            goal_delivery_pros=data.get('goal_delivery_pros'),
-            goal_delivery_cons=data.get('goal_delivery_cons'),
-            logo_rating=int(data.get('logo_rating', 0)) if data.get(
-                'logo_rating') else None,
-            logo_pros=data.get('logo_pros'),
-            logo_cons=data.get('logo_cons'),
-            gift_rating=int(data.get('gift_rating', 0)) if data.get(
-                'gift_rating') else None,
-            gift_pros=data.get('gift_pros'),
-            gift_cons=data.get('gift_cons'),
-            secretary_rating=int(data.get('secretary_rating', 0)) if data.get(
-                'secretary_rating') else None,
-            secretary_pros=data.get('secretary_pros'),
-            secretary_cons=data.get('secretary_cons'),
-            media_rating=int(data.get('media_rating', 0)) if data.get(
-                'media_rating') else None,
-            media_pros=data.get('media_pros'),
-            media_cons=data.get('media_cons'),
-            emergency_rating=int(data.get('emergency_rating', 0)) if data.get(
-                'emergency_rating') else None,
-            emergency_pros=data.get('emergency_pros'),
-            emergency_cons=data.get('emergency_cons'),
-            kitchen_rating=int(data.get('kitchen_rating', 0)) if data.get(
-                'kitchen_rating') else None,
-            kitchen_pros=data.get('kitchen_pros'),
-            kitchen_cons=data.get('kitchen_cons'),
-            finance_rating=int(data.get('finance_rating', 0)) if data.get(
-                'finance_rating') else None,
-            finance_pros=data.get('finance_pros'),
-            finance_cons=data.get('finance_cons'),
-            custody_rating=int(data.get('custody_rating', 0)) if data.get(
-                'custody_rating') else None,
-            custody_pros=data.get('custody_pros'),
-            custody_cons=data.get('custody_cons'),
-            purchase_rating=int(data.get('purchase_rating', 0)) if data.get(
-                'purchase_rating') else None,
-            purchase_pros=data.get('purchase_pros'),
-            purchase_cons=data.get('purchase_cons'),
-            transportation_rating=int(data.get('transportation_rating', 0)) if data.get(
-                'transportation_rating') else None,
-            transportation_pros=data.get('transportation_pros'),
-            transportation_cons=data.get('transportation_cons'),
-            general_suggestions=data.get('general_suggestions')
+            participant_name=data.get('participant_name', '').strip(),
+            main_team=data.get('main_team', '').strip(),
+            sub_team=data.get('sub_team', '').strip(),
+            program_rating=safe_int(data.get('program_rating')),
+            program_pros=data.get('program_pros', '').strip(),
+            program_cons=data.get('program_cons', '').strip(),
+            leaders_rating=safe_int(data.get('leaders_rating')),
+            leaders_pros=data.get('leaders_pros', '').strip(),
+            leaders_cons=data.get('leaders_cons', '').strip(),
+            games_rating=safe_int(data.get('games_rating')),
+            games_pros=data.get('games_pros', '').strip(),
+            games_cons=data.get('games_cons', '').strip(),
+            goal_delivery_rating=safe_int(data.get('goal_delivery_rating')),
+            goal_delivery_pros=data.get('goal_delivery_pros', '').strip(),
+            goal_delivery_cons=data.get('goal_delivery_cons', '').strip(),
+            logo_rating=safe_int(data.get('logo_rating')),
+            logo_pros=data.get('logo_pros', '').strip(),
+            logo_cons=data.get('logo_cons', '').strip(),
+            gift_rating=safe_int(data.get('gift_rating')),
+            gift_pros=data.get('gift_pros', '').strip(),
+            gift_cons=data.get('gift_cons', '').strip(),
+            secretary_rating=safe_int(data.get('secretary_rating')),
+            secretary_pros=data.get('secretary_pros', '').strip(),
+            secretary_cons=data.get('secretary_cons', '').strip(),
+            media_rating=safe_int(data.get('media_rating')),
+            media_pros=data.get('media_pros', '').strip(),
+            media_cons=data.get('media_cons', '').strip(),
+            emergency_rating=safe_int(data.get('emergency_rating')),
+            emergency_pros=data.get('emergency_pros', '').strip(),
+            emergency_cons=data.get('emergency_cons', '').strip(),
+            kitchen_rating=safe_int(data.get('kitchen_rating')),
+            kitchen_pros=data.get('kitchen_pros', '').strip(),
+            kitchen_cons=data.get('kitchen_cons', '').strip(),
+            finance_rating=safe_int(data.get('finance_rating')),
+            finance_pros=data.get('finance_pros', '').strip(),
+            finance_cons=data.get('finance_cons', '').strip(),
+            custody_rating=safe_int(data.get('custody_rating')),
+            custody_pros=data.get('custody_pros', '').strip(),
+            custody_cons=data.get('custody_cons', '').strip(),
+            purchase_rating=safe_int(data.get('purchase_rating')),
+            purchase_pros=data.get('purchase_pros', '').strip(),
+            purchase_cons=data.get('purchase_cons', '').strip(),
+            transportation_rating=safe_int(data.get('transportation_rating')),
+            transportation_pros=data.get('transportation_pros', '').strip(),
+            transportation_cons=data.get('transportation_cons', '').strip(),
+            general_suggestions=data.get('general_suggestions', '').strip()
         )
 
         db.session.add(submission)
         db.session.commit()
 
-        return jsonify({'success': True, 'message': 'تم إرسال التقييم بنجاح'}), 200
+        return jsonify({
+            'success': True, 
+            'message': 'تم إرسال التقييم بنجاح',
+            'id': submission.id
+        }), 200
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"Error in submit_evaluation: {str(e)}")  # Add logging
+        return jsonify({
+            'success': False, 
+            'error': 'حدث خطأ أثناء إرسال التقييم'
+        }), 500
 
 
 @evaluation_bp.route('/download', methods=['GET'])
@@ -144,8 +159,7 @@ def download_excel():
         for row, submission in enumerate(submissions, 2):
             data = [
                 submission.id,
-                submission.submission_date.strftime(
-                    '%Y-%m-%d %H:%M:%S') if submission.submission_date else '',
+                submission.submission_date.strftime('%Y-%m-%d %H:%M:%S') if submission.submission_date else '',
                 submission.participant_name or '',
                 submission.main_team or '',
                 submission.sub_team or '',
@@ -213,6 +227,7 @@ def download_excel():
         )
 
     except Exception as e:
+        print(f"Error in download_excel: {str(e)}")  # Add logging
         return jsonify({'error': str(e)}), 500
 
 
@@ -232,4 +247,15 @@ def get_stats():
         }), 200
 
     except Exception as e:
+        print(f"Error in get_stats: {str(e)}")  # Add logging
         return jsonify({'error': str(e)}), 500
+
+
+# Health check endpoint
+@evaluation_bp.route('/health', methods=['GET'])
+def health_check():
+    """Simple health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat()
+    }), 200
