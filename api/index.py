@@ -1,6 +1,5 @@
 import os
 import sys
-
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 
@@ -19,16 +18,23 @@ CORS(app)
 # Register API blueprint
 app.register_blueprint(evaluation_bp, url_prefix='/api')
 
-# SQLite DB Setup
-db_dir = os.path.join(os.path.dirname(__file__), 'database')
-if not os.path.exists(db_dir):
-    os.makedirs(db_dir)
+# REMOVE SQLite setup - it doesn't work on Vercel
+# Use environment variable for database URL
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(db_dir, 'app.db')}"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Init DB
-db.init_app(app)
+if DATABASE_URL:
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
+    
+    # Try to create tables
+    try:
+        with app.app_context():
+            db.create_all()
+    except Exception as e:
+        print(f"Database error: {e}")
+else:
+    print("No DATABASE_URL found - database operations will fail")
 
 # Serve static frontend (optional)
 @app.route('/', defaults={'path': ''})
@@ -43,5 +49,3 @@ def serve(path):
             return send_from_directory(static_folder_path, 'index.html')
         else:
             return "index.html not found", 404
-
-# Do NOT run app.run() — Vercel runs this as a serverless function
