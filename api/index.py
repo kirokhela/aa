@@ -1,51 +1,38 @@
 import os
 import sys
+
 from flask import Flask, send_from_directory
 from flask_cors import CORS
-
-# Adjust path for local imports
-sys.path.insert(0, os.path.dirname(__file__))
-
-from models.evaluation import db
+from models.evaluation import create_evaluation_table
 from routes.evaluation import evaluation_bp
 
-app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
-app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
+# --- Configuration ---
+PORT = 7020
+STATIC_FOLDER = os.path.join(os.path.dirname(__file__), 'static')
+SECRET_KEY = 'asdf#FGSgvasgf$5$WGT'
 
-# Enable CORS
+# --- Create Flask app ---
+app = Flask(__name__, static_folder=STATIC_FOLDER)
+app.config['SECRET_KEY'] = SECRET_KEY
 CORS(app)
 
-# Register API blueprint
+# --- Initialize DB ---
+create_evaluation_table()
+
+# --- Register routes ---
 app.register_blueprint(evaluation_bp, url_prefix='/api')
 
-# REMOVE SQLite setup - it doesn't work on Vercel
-# Use environment variable for database URL
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# --- Serve static HTML ---
 
-if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    db.init_app(app)
-    
-    # Try to create tables
-    try:
-        with app.app_context():
-            db.create_all()
-    except Exception as e:
-        print(f"Database error: {e}")
-else:
-    print("No DATABASE_URL found - database operations will fail")
 
-# Serve static frontend (optional)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def serve(path):
-    static_folder_path = app.static_folder
-    if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
-        return send_from_directory(static_folder_path, path)
+def serve_static(path):
+    full_path = os.path.join(app.static_folder, path)
+    if path != "" and os.path.exists(full_path):
+        return send_from_directory(app.static_folder, path)
+    elif os.path.exists(os.path.join(app.static_folder, 'index.html')):
+        return send_from_directory(app.static_folder, 'index.html')
     else:
-        index_path = os.path.join(static_folder_path, 'index.html')
-        if os.path.exists(index_path):
-            return send_from_directory(static_folder_path, 'index.html')
-        else:
-            return "index.html not found", 404
+        return "index.html not found", 404
+
